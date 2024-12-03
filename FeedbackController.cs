@@ -9,51 +9,80 @@ namespace _00017159_WAD_Portfolio.Controllers
     public class FeedbackController : ControllerBase
     {
         private readonly IRepository<Feedback> _repository;
-        public FeedbackController(IRepository<Feedback> repository)
+        private readonly IRepository<User> _userRepository;
+
+        public FeedbackController(IRepository<Feedback> repository, IRepository<User> userRepository)
         {
             _repository = repository;
+            _userRepository = userRepository;
         }
 
-        // GET: api/Feedback
+        // Get all feedbacks
         [HttpGet]
-        public async Task<IEnumerable<Feedback>> GetAllFeedbacks()
+        public async Task<IEnumerable<Feedback>> GetAllItems()
         {
             return await _repository.GetAllAsync();
         }
 
-        // GET: api/Feedback/{id}
+        // Get feedback by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult> GetFeedbackById(int id)
+        public async Task<ActionResult> GetById(int id)
         {
             var feedback = await _repository.GetByIdAsync(id);
             return feedback == null ? NotFound() : Ok(feedback);
         }
 
-        // PUT: api/Feedback/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateFeedback(int id, Feedback feedback)
-        {
-            if (feedback.FeedbackId == id)
-            {
-                await _repository.UpdateAsync(feedback);
-                return NoContent();
-            }
-            else
-                return BadRequest();
-        }
-
-        // POST: api/Feedback
+        // Create new feedback
         [HttpPost]
-        public async Task<ActionResult> CreateFeedback(Feedback feedback)
+        public async Task<ActionResult> Create(Feedback feedback)
         {
+            // Validate the UserId (foreign key)
+            var userExists = await _userRepository.GetByIdAsync(feedback.UserId);
+            if (userExists == null)
+            {
+                return BadRequest($"User with ID {feedback.UserId} does not exist.");
+            }
+
             await _repository.CreateAsync(feedback);
-            return CreatedAtAction("GetFeedbackById", new { id = feedback.FeedbackId }, feedback);
+            return CreatedAtAction("GetById", new { id = feedback.FeedbackId }, feedback);
         }
 
-        // DELETE: api/Feedback/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteFeedback(int id)
+        // Update feedback
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] Feedback feedback)
         {
+            if (feedback.FeedbackId != id)
+            {
+                return BadRequest("Feedback ID mismatch.");
+            }
+
+            // Validate the UserId (foreign key)
+            var userExists = await _userRepository.GetByIdAsync(feedback.UserId);
+            if (userExists == null)
+            {
+                return BadRequest($"User with ID {feedback.UserId} does not exist.");
+            }
+
+            var existingFeedback = await _repository.GetByIdAsync(id);
+            if (existingFeedback == null)
+            {
+                return NotFound($"Feedback with ID {id} not found.");
+            }
+
+            await _repository.UpdateAsync(feedback);
+            return NoContent();
+        }
+
+        // Delete feedback
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var existingFeedback = await _repository.GetByIdAsync(id);
+            if (existingFeedback == null)
+            {
+                return NotFound($"Feedback with ID {id} not found.");
+            }
+
             await _repository.DeleteAsync(id);
             return NoContent();
         }

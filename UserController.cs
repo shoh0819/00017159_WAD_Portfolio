@@ -8,47 +8,98 @@ namespace _00017159_WAD_Portfolio.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IRepository<User> _repository;
-        public UserController(IRepository<User> repository)
+        private readonly IRepository<User> _userRepository;
+        private readonly IRepository<Feedback> _feedbackRepository;
+
+        public UserController(IRepository<User> userRepository, IRepository<Feedback> feedbackRepository)
         {
-            _repository = repository;
-        }
-        [HttpGet]
-        public async Task<IEnumerable<User>> GetAllItems()
-        {
-            return await _repository.GetAllAsync();
-        }
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetByID(int id)
-        {
-            var user = await _repository.GetByIdAsync(id);
-            return user == null ? NotFound() : Ok(user);
-        }
-        
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, User user)
-        {
-            if (user.UserId == id)
-            {
-                await _repository.UpdateAsync(user);
-                return NoContent();
-            }
-            else
-                return BadRequest();
+            _userRepository = userRepository;
+            _feedbackRepository = feedbackRepository;
         }
 
-        [HttpPost]
-        public async Task<ActionResult> Create(User user
-            )
+        // Get all users
+        [HttpGet]
+        public async Task<IEnumerable<User>> GetAllUsers()
         {
-            await _repository.CreateAsync(user);
-            return CreatedAtAction("GetByID", new { id = user.UserId }, user);
+            return await _userRepository.GetAllAsync();
         }
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+
+        // Get user by ID
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetUserById(int id)
         {
-            await _repository.DeleteAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
+
+            if (user == null)
+            {
+                return NotFound($"User with ID {id} not found.");
+            }
+
+            return Ok(user);
+        }
+
+        // Create new user
+        [HttpPost]
+        public async Task<ActionResult> CreateUser(User user)
+        {
+            await _userRepository.CreateAsync(user);
+            return CreatedAtAction("GetUserById", new { id = user.UserId }, user);
+        }
+
+        // Update user
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] User user)
+        {
+            if (user.UserId != id)
+            {
+                return BadRequest("User ID mismatch.");
+            }
+
+            var existingUser = await _userRepository.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                return NotFound($"User with ID {id} not found.");
+            }
+
+            await _userRepository.UpdateAsync(user);
             return NoContent();
+        }
+
+        // Delete user
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var existingUser = await _userRepository.GetByIdAsync(id);
+            if (existingUser == null)
+            {
+                return NotFound($"User with ID {id} not found.");
+            }
+
+            // Optionally delete associated feedbacks if cascading isn't handled in the database
+            var userFeedbacks = existingUser.feedbacks;
+            if (userFeedbacks != null && userFeedbacks.Any())
+            {
+                foreach (var feedback in userFeedbacks)
+                {
+                    await _feedbackRepository.DeleteAsync(feedback.FeedbackId);
+                }
+            }
+
+            await _userRepository.DeleteAsync(id);
+            return NoContent();
+        }
+
+        // Get feedbacks for a specific user
+        [HttpGet("{id}/feedbacks")]
+        public async Task<ActionResult<IEnumerable<Feedback>>> GetUserFeedbacks(int id)
+        {
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound($"User with ID {id} not found.");
+            }
+
+            return Ok(user.feedbacks);
         }
     }
 }
