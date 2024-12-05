@@ -8,3 +8,4 @@ Microsoft.EntityFrameworkCore.Tools
 Microsoft.EntityFrameworkCore.SqlServer
 Microsoft.EntityFrameworkCore
 AutoMapper
+Additionally you need to have angular and node.js to execute SPA(front end) part and on the terminal you need install node modules as well
